@@ -321,10 +321,18 @@ void loop()
   // will likely need to call this function when triggered by new data (see BLE interrupt protocol)
   sendSensorData();
 
-  // poll for Bluetooth® Low Energy events
+  // call Bluetooth® Low Energy function to read from sensor and transmit to characteristic
   bleDataCheck();
+  /****** not needed given Uno functionality built-in
+  // serial passthrough function between Serial (USB) and Serial1
+  if (Serial.available()) {        // If anything comes in Serial (USB),
+    Serial1.write(Serial.read());  // read it and send it out Serial1 (pins 0 & 1)
+  }
 
-  // if central found and there are data to transmit then establish connection and send data to central
+  if (Serial1.available()) {       // If anything comes in Serial1 (pins 0 & 1)
+    Serial.write(Serial1.read());  // read it and send it out Serial (USB)
+  }
+  ********/
 }
 
 // INA260 Code to convert solar voltage 
