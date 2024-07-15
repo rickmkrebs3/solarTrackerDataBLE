@@ -125,9 +125,6 @@ Adafruit_BluefruitLE_SPI ble(BLUEFRUIT_SPI_CS, BLUEFRUIT_SPI_IRQ, BLUEFRUIT_SPI_
 //Global variables and class declarations
 const int xPin = xPIN; // pin to use for generic input/output
 
-// Adafruit I2C class object
-Adafruit_I2CDevice i2c_dev = Adafruit_I2CDevice(I2C_ADDRESS);
-
 // DS18S20 temperature chip IO
 OneWire ds(10);
 
