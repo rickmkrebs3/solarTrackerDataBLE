@@ -44,7 +44,7 @@
 */
 
 // Libraries
-#include "SoftwareSerial.h" // enables BT functionality
+#include "SoftwareSerial.h" // enables BT functionality through HW ports emulated in SW
  // enables I2C
 #include "Wire.h"
 #include <Adafruit_BusIO_Register.h>
@@ -61,7 +61,7 @@ Adafruit_I2CDevice i2c_dev = Adafruit_I2CDevice(I2C_ADDRESS);
 
 #define xPIN 0
 
-// construct BT class object "BT" that will create virtual UART to Uno pins 10 and 11
+// construct BT class object "BT" that will create virtual UART to Uno pins 10 (RXD) and 11 (TXD)
 SoftwareSerial BT(10, 11); 
 
 //Global variables and class declarations
@@ -79,7 +79,14 @@ char a;
 
 void setup() 
 {
-  Serial.begin(115200); // ok with this bD rate?  does it need to be 9600? other?
+  pinMode(9, OUTPUT);  // this pin will pull the HC-05 pin 34 (key pin) HIGH to switch module to AT mode
+  digitalWrite(9, HIGH);
+  
+  Serial.begin(9600);
+  Serial.println("Enter AT commands:");
+  BT.begin(38400);  // HC-05 default speed in AT command more
+
+  // Serial.begin(115200); // ok with this bD rate?  does it need to be 9600? other?
  
   // Wait until serial port is opened
   while (!Serial) 
@@ -276,6 +283,11 @@ void sendSensorData()
 
 void sendBTData()
 {
+  // Keep reading from Arduino Serial Monitor and send to HC-05
+  if (Serial.available())
+    BT.write(Serial.read());
+
+  /******* code below is for taking commands from HC-05 (i.e., remote client) to Arduino ****
   if (BT.available())
   // if text arrived in from BT serial...
   {
@@ -295,5 +307,6 @@ void sendBTData()
       BT.println("Send '1' to turn LED on");
       BT.println("Send '2' to turn LED on");
     }
-  }   
+  }
+  */   
 }
