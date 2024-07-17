@@ -1,0 +1,3 @@
+/Users/rickkrebs/CLionProjects/solarBT/cmake-build-debug/CMakeFiles/solarBT.dir
+/Users/rickkrebs/CLionProjects/solarBT/cmake-build-debug/CMakeFiles/edit_cache.dir
+/Users/rickkrebs/CLionProjects/solarBT/cmake-build-debug/CMakeFiles/rebuild_cache.dir
