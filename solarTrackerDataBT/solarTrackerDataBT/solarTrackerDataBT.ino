@@ -55,6 +55,8 @@
 #include <Adafruit_SPIDevice.h>
 #include <Adafruit_INA260.h>
 #include <OneWire.h> // enables HT11 sensor communication
+#include <SPI.h>
+#include <SD.h>
 
 // #include <solarBTAdapter.h> // add later if helpful for more BT functionality
 
@@ -81,6 +83,9 @@ long randNum;
 
 // solar test data
 double solarBTdata = 0.0;
+
+// SD card pin chip select
+const int chipSelect = 4;
 
 void setup() 
 {
@@ -135,6 +140,19 @@ void setup()
 
   Serial.println("Found INA260 chip");
 
+  /************* SD card initialization: uncomment if using this as well to store data
+    Serial.print("Initializing SD card...");
+
+  // see if the card is present and can be initialized:
+  if (!SD.begin(chipSelect)) {
+    Serial.println("Card failed, or not present");
+    // don't do anything more:
+    while (1);
+  }
+  Serial.println("card initialized.");
+
+  *************/
+
   // Send test message to other device
   BTSerial.println("Hello from solarTracker!");
 }
@@ -153,6 +171,9 @@ void loop()
 
   // next loop to BT function/sending BT data remote device
   sendBTData();
+
+  // loop through function to store sensor data as .csv file
+  storeSDData();
 }
 
 void solarDataAnalyze()
@@ -316,4 +337,35 @@ void sendBTData()
   if (Serial.available())
     BT.write(Serial.read());
   ************/   
+}
+
+void storeSDData()
+{
+  // make a string for assembling the data to log:
+  String dataString = "";
+
+  // read from sensors A2-A7 (6 total) and append to the string
+  for (int analogPin = 2; analogPin < 8; analogPin++)
+  {
+    int sensor = analogRead(analogPin);
+    dataString += String(sensor);
+    if (analogPin < 7) 
+    {
+      dataString += ",";
+    }
+  }
+
+  // open the file (though only one file can be open at a time)
+  File dataFile = SD.open("datalog.txt", FILE_WRITE);
+
+  // if the file is available, write to it:
+  if (dataFile) 
+  {
+    dataFile.println(dataString);
+    dataFile.close();
+    // print to the serial port too:
+    Serial.println(dataString);
+  } else { // if the file isn't open, pop up an error:
+    Serial.println("error opening datalog.txt");
+  }
 }
