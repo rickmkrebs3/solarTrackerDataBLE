@@ -1,4 +1,5 @@
-/* ECE211/212 Project Design
+/********************************************************** 
+  ECE211/212 Project Design
   Summer 2024
   Portland State University 
   Group 6 (Mohammed, Eisa, Fernando, Nate, Rick)
@@ -41,20 +42,22 @@
     * figure out how data will arrive (method, interval, amount per interval)
     * use DS3231 & AT24C32 RTC module as real-time clock
     * establish remote database system (ideally on laptop that hosts the DB program)
-*/
+**********************************************************/
 
 // Libraries
-#include "SoftwareSerial.h" // enables BT functionality through HW ports emulated in SW
+// enables BT functionality through HW ports emulated in SW
+#include "SoftwareSerial.h" 
 
 // enables I2C
 #include "Wire.h"
 #include <Adafruit_BusIO_Register.h>
 #include <Adafruit_I2CDevice.h>
 #include <Adafruit_I2CRegister.h>
-
 #include <Adafruit_SPIDevice.h>
 #include <Adafruit_INA260.h>
-#include <OneWire.h> // enables HT11 sensor communication
+
+// enables HT11 sensor communication
+#include <OneWire.h> 
 #include <SPI.h>
 #include <SD.h>
 
@@ -80,9 +83,7 @@ Adafruit_INA260 ina260 = Adafruit_INA260();
 
 // for BT testing, generates pseudorandom number from analog pin A0
 long randNum;
-
-// solar test data
-double solarBTdata = 0.0;
+double solarBTdata;
 
 // SD card pin chip select
 const int chipSelect = 4;
@@ -97,17 +98,19 @@ void setup()
   ********** after AT mode, remember to set pin 9 to ground (GND) again */
   
   /*** setup BT functionality
-    - set digital pin to control as an output
-    - creates a "virtual" serial port/UART
-    - connect BT module TX to D10
-    - connect BT module RX to D11
-    - connect BT Vcc to 5V, GND to GND
+    * set digital pin to control as an output
+    * creates a "virtual" serial port/UART
+    * connect BT module TXD to D10
+    * connect BT module RXD to D11
+    * connect BT Vcc to 5V, GND to GND
   ***/
-  pinMode(rxPin, INPUT);  // receive data from Coolterm, N/A in our use case currently
+
+  // set receive (RXD) and transmit (TXD) pins
+  pinMode(rxPin, INPUT);  
   pinMode(txPin, OUTPUT);
    
-  Serial.begin(38400); // prev 9600
-  BTSerial.begin(38400);  // HC-05 default speed in AT command more
+  Serial.begin(38400);
+  BTSerial.begin(38400);  // HC-05 default speed in AT command, but can be 
 
   // wait until serial port is opened
   while (!Serial) 
@@ -115,9 +118,10 @@ void setup()
     delay(10); 
   }
 
+  // create pseudorandom number from seed from floating A0 pin
   randomSeed(analogRead(0));
 
-  // check if remote device (running CoolTerm is listening to BT-USB port for "solarTracker")
+  // check if remote device (running CoolTerm) is listening to BT-USB port for "solarTracker"
   if (BTSerial.isListening())
   {
     Serial.println("CoolTerm client is listening...");
@@ -176,6 +180,7 @@ void loop()
   storeSDData();
 }
 
+// function that reads data from INA260 voltage converter
 void solarDataAnalyze()
 {
   // INA260 Code to convert solar voltage 
@@ -201,7 +206,7 @@ void solarDataAnalyze()
   // such as going under/over specified voltage, etc.; also can use this pin to signal
   // a one shot conversion being ready; voltage level is the same as Vcc
 }
-
+// function to obtain and send HT11 temperature/humidity sensor through I2C to Uno
 void tempHumSensorInput()
 {
   // 1-wire input 
@@ -281,7 +286,7 @@ void tempHumSensorInput()
   Serial.println();
 }
 
-// sendSenorData() function: transmits data back to Uno
+// function to transmit data back to Uno
 void sendSensorData()
 {
     Serial.println("I2C device read and write test");
@@ -320,12 +325,17 @@ void sendSensorData()
   
   Serial.println();
 }
-
+// obtain data from analog Uno pins and send through HC-05 Bluetooth to client
 void sendBTData()
 {
-  Serial.print("solarBTdata output from INA260 device: ");
+  Serial.print("CO2 sensor output from ST0252 device: ");
   randNum = random(100);
   BTSerial.println(randNum);
+  delay(50);
+
+  Serial.print("solarBTdata output from INA260 device: ");
+  solarBTdata = random(600) / 100;
+  BTSerial.println(solarBTdata);
   delay(2000);
 
   /*********** uncomment for AT programming (see setup()) if desired
@@ -339,6 +349,7 @@ void sendBTData()
   ************/   
 }
 
+// function to store data in batch form to files to SD card (optional)
 void storeSDData()
 {
   // make a string for assembling the data to log:
