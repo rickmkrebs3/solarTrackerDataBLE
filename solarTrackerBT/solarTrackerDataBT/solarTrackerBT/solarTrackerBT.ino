@@ -65,21 +65,23 @@
 
 // Defines
 #define I2C_ADDRESS 0x60
-Adafruit_I2CDevice i2c_dev = Adafruit_I2CDevice(I2C_ADDRESS);
 
 // BT SoftwareSerial SW pins to emulate pins 0 and 1 (HW USB/UART ports)
 #define rxPin 10
 #define txPin 11
 
+//Global variables and class declarations
 // construct BT class object "BT" that will create virtual UART to Uno pins 10 (RXD) and 11 (TXD)
 SoftwareSerial BTSerial(rxPin, txPin); 
 
-//Global variables and class declarations
 // DS18S20 temperature chip IO
 OneWire ds(10);
 
 // create class object for INA Bluetooth-to-serial
 Adafruit_INA260 ina260 = Adafruit_INA260();
+
+// I2C object creation
+Adafruit_I2CDevice i2c_dev = Adafruit_I2CDevice(I2C_ADDRESS);
 
 // for BT testing, generates pseudorandom number from analog pin A0
 long randNum;
@@ -87,6 +89,9 @@ double solarBTdata;
 
 // SD card pin chip select
 const int chipSelect = 4;
+
+// pin numbers for the CO2 gas sensor
+const int sensorPin = A0;
 
 void setup() 
 {
@@ -172,6 +177,9 @@ void loop()
   // Code that sends data from Uno INA260
   // will likely need to call this function when triggered by new data (?BT interrupt protocol)
   sendSensorData();
+
+  // function to read CO2 level on A0
+  gasSensor();
 
   // next loop to BT function/sending BT data remote device
   sendBTData();
@@ -328,7 +336,7 @@ void sendSensorData()
 // obtain data from analog Uno pins and send through HC-05 Bluetooth to client
 void sendBTData()
 {
-  Serial.print("CO2 sensor output from ST0252 device: ");
+  Serial.print("Generic sensor device data (0-100): ");
   randNum = random(100);
   BTSerial.println(randNum);
   delay(50);
@@ -336,6 +344,10 @@ void sendBTData()
   Serial.print("solarBTdata output from INA260 device: ");
   solarBTdata = random(600) / 100;
   BTSerial.println(solarBTdata);
+  delay(2000);
+
+  Serial.print("MQ-2 CO2 level output: ");
+  BTSerial.println(analogRead(sensorPin));
   delay(2000);
 
   /*********** uncomment for AT programming (see setup()) if desired
@@ -367,7 +379,7 @@ void storeSDData()
   }
 
   // open the file (though only one file can be open at a time)
-  File dataFile = SD.open("datalog.txt", FILE_WRITE);
+  File dataFile = SD.open("solarTrackerDataLog.csv", FILE_WRITE);
 
   // if the file is available, write to it:
   if (dataFile) 
@@ -377,6 +389,19 @@ void storeSDData()
     // print to the serial port too:
     Serial.println(dataString);
   } else { // if the file isn't open, pop up an error:
-    Serial.println("error opening datalog.txt");
+    Serial.println("error opening solarTrackerDataLog.csv");
   }
+}
+
+// for MQ-2 heating-driven gas sensor, which reads 10-bit analog output from sensor and prints
+// to serial monitor; sensor must preheat for 3+ minutes before stable readings
+// connect to 5V, GND, and A0; ** of note detects multiple gas, cannot differentiate between them
+// but gases include CO2, ETOH, CO, H2, isobutene, liquefied petroleum gas, CH4 (methane), propane,
+// and smoke
+void gasSensor()
+{
+  Serial.print("Analog output: ");
+  Serial.println(analogRead(sensorPin));  // Read the analog value of the gas sensor
+                                          // and print it to the serial monitor
+  delay(50);  
 }
