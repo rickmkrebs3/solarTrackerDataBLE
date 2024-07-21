@@ -11,54 +11,47 @@
     through the Uno.  Will need to add statements that send serial data from INA260 (?writeCurrent, etc.) over *** to Uno
     From there the data will be sent to HT-06 (or BLE shield) to remote device
     TODO:
-    * confirm exact serial/other connection type and all pins involved
-    * confirm how to get data from Uno to 
-    * should these data be written to csv file as well as sent over serial line
-    * if serial (yes), then at what frequency?
-    * what determines when the INA is queried for data coming from the solar panel (is this the trigger)?
-    * incorporate CoolTerm to log these data?
-    * what kind of feedback?
-    * confirm power need for INA260
+    * fit all program compoenents together, deciding on which analog pins should be used for all devices
+    * recommend setting const int for each device pin
     * where does real-time clock fit in?
 
   B. Data recording
     - temperature and humidity data will be sent by 1-wire protocol to Uno, where it will then be sent to remote device
     via HT-06 (BT) or BLE shield (see solarTrackerSolarBLE.ino)
     TODO:
-    * confirm how data are queried
-    * record to csv and transmit to BT device
     * connect HT11 to LCD as well for real-time display
 
   C. Bluetooth
     - construct BT object, which can send (and receive) data from the remote device 
     TODO:
-    * attach HT-06, ensure connections
-    * configure receive data from Uno and write to remote device at intervals
+    - attach INA260 and other devices to final working (complete) devices
 
   D. Remote data-management
-    - all BT or BLE data will be sent by csv file or serially to database manager for storage and analysis, ideally
+    - all BT or BLE data are sent serially to database manager for storage and analysis, ideally
     through Linux
     TODO:
-    * figure out how data will arrive (method, interval, amount per interval)
-    * use DS3231 & AT24C32 RTC module as real-time clock
-    * establish remote database system (ideally on laptop that hosts the DB program)
+    * opt: uncomment SD/local data storage function storeSDData() in loop() if team decides to add this function (not needed)
 **********************************************************/
 
 // Libraries
 // enables BT functionality through HW ports emulated in SW
 #include "SoftwareSerial.h" 
 
-// enables I2C
+// enable I2C for generic communication
 #include "Wire.h"
 #include <Adafruit_BusIO_Register.h>
 #include <Adafruit_I2CDevice.h>
 #include <Adafruit_I2CRegister.h>
 #include <Adafruit_SPIDevice.h>
+
+// library for INA260 device
 #include <Adafruit_INA260.h>
 
 // enables HT11 sensor communication
 #include <OneWire.h> 
 #include <SPI.h>
+
+// library for SD optional storage function (also needs SPI.h just above)
 #include <SD.h>
 
 // #include <solarBTAdapter.h> // add later if helpful for more BT functionality
@@ -67,6 +60,8 @@
 #define I2C_ADDRESS 0x60
 
 // BT SoftwareSerial SW pins to emulate pins 0 and 1 (HW USB/UART ports)
+// consider changing these to const int rxPin 10 etc... for better data stability
+// but unlikely need to do this, but can reassign these to other analog pins
 #define rxPin 10
 #define txPin 11
 
@@ -80,18 +75,24 @@ OneWire ds(10);
 // create class object for INA Bluetooth-to-serial
 Adafruit_INA260 ina260 = Adafruit_INA260();
 
-// I2C object creation
+// Generic I2C object creation in order to transmit data by I2C if necessary
+// Currently devices have internal transmission mechanisms
 Adafruit_I2CDevice i2c_dev = Adafruit_I2CDevice(I2C_ADDRESS);
 
 // for BT testing, generates pseudorandom number from analog pin A0
-long randNum;
+long randNum; // for testing only; delete out/uncomment when devices are attached and pins determined
 double solarBTdata;
+double gasData;
 
 // SD card pin chip select
 const int chipSelect = 4;
 
-// pin numbers for the CO2 gas sensor
+// pin using for random number seed for testing *** uncomment/delete out once pins are 
+// set for each device such as below
 const int sensorPin = A0;
+
+// pin number for the CO2 gas sensor, but can change to any analog pin
+const int sensorPin1 = A1;
 
 void setup() 
 {
@@ -138,15 +139,14 @@ void setup()
   } else {
     Serial.println("No BTSerial overflow.");
   }
-
+  
   Serial.println("Adafruit INA260 Test");
 
   if (!ina260.begin()) 
   {
     Serial.println("Could not find INA260 chip!");
-    while (1);
   }
-
+  
   Serial.println("Found INA260 chip");
 
   /************* SD card initialization: uncomment if using this as well to store data
@@ -163,29 +163,30 @@ void setup()
   *************/
 
   // Send test message to other device
-  BTSerial.println("Hello from solarTracker!");
+  Serial.println("Hello from solarTracker!");
 }
 
 void loop() 
 {
-  // call function that accepts voltage input from solar panel
+  // call function that accepts voltage input from solar panel after analysis and 
+  // sent to internal board pins on INA260
   solarDataAnalyze();
 
   // function that reads from the HT11, sending signals back at intervals to Uno
   tempHumSensorInput();
 
-  // Code that sends data from Uno INA260
+  // Code that sends data via I2C, function simply ignored if no I2C device connected
   // will likely need to call this function when triggered by new data (?BT interrupt protocol)
   sendSensorData();
-
-  // function to read CO2 level on A0
-  gasSensor();
 
   // next loop to BT function/sending BT data remote device
   sendBTData();
 
+  // function to read CO2 level on A0
+  gasSensor();
+
   // loop through function to store sensor data as .csv file
-  storeSDData();
+  // storeSDData();
 }
 
 // function that reads data from INA260 voltage converter
@@ -196,16 +197,19 @@ void solarDataAnalyze()
   // for low side measurements we will cut the VB jumper on the right side of the breakout
   // and connect Vbus to the power bus (? logic/power pin Vcc 3.3-5V In)
   Serial.print("Current: ");
-  Serial.print(ina260.readCurrent());
+  int16_t A = Serial.print(ina260.readCurrent());
   Serial.println(" mA");
+  BTSerial.println(A);
 
   Serial.print("Bus Voltage: ");
-  Serial.print(ina260.readBusVoltage());
+  int16_t V = Serial.print(ina260.readBusVoltage());
   Serial.println(" mV");
+  BTSerial.println(V);
 
   Serial.print("Power: ");
-  Serial.print(ina260.readPower());
+  int16_t W = Serial.print(ina260.readPower());
   Serial.println(" mW");
+  BTSerial.println(W);
 
   Serial.println();
   delay(1000);
@@ -225,9 +229,9 @@ void tempHumSensorInput()
 
   ds.reset_search();
 
-  if ( !ds.search(addr)) 
+  if (!ds.search(addr)) 
   {
-    Serial.print("No more addresses.\n");
+    Serial.print("No more SPI addresses.\n");
 
     ds.reset_search();
     return;
@@ -235,7 +239,7 @@ void tempHumSensorInput()
 
   Serial.print("R = ");
 
-  for(b = 0; b < 8; b++) 
+  for (b = 0; b < 8; b++) 
   {
     Serial.print(addr[b], HEX);
     Serial.print(" ");
@@ -303,8 +307,8 @@ void sendSensorData()
   {
     Serial.print("Did not find device at 0x");
     Serial.println(i2c_dev.address(), HEX);
-
-    while (1);
+    return;
+    // while (1);
   }
   Serial.print("Device found on address 0x");
   Serial.println(i2c_dev.address(), HEX);
@@ -314,7 +318,7 @@ void sendSensorData()
   // Try to read 32 bytes
   i2c_dev.read(buffer, 32);
   Serial.print("Read: ");
-  for (uint8_t i=0; i<32; i++) 
+  for (uint8_t i = 0; i < 32; i++) 
   {
     Serial.print("0x"); Serial.print(buffer[i], HEX); Serial.print(", ");
   }
@@ -332,22 +336,23 @@ void sendSensorData()
   }
   
   Serial.println();
-}
-// obtain data from analog Uno pins and send through HC-05 Bluetooth to client
-void sendBTData()
-{
+
   Serial.print("Generic sensor device data (0-100): ");
   randNum = random(100);
+  Serial.println(randNum);
   BTSerial.println(randNum);
   delay(50);
 
+}
+// obtain data from analog Uno pins and send through HC-05 Bluetooth to client
+// make sure to change stop bits to 2 on CoolTerm (8 data, no parity, 38400 bD rate)
+void sendBTData()
+{
   Serial.print("solarBTdata output from INA260 device: ");
-  solarBTdata = random(600) / 100;
+  solarBTdata = random(600);
+  solarBTdata /= 100;
+  Serial.println(solarBTdata);
   BTSerial.println(solarBTdata);
-  delay(2000);
-
-  Serial.print("MQ-2 CO2 level output: ");
-  BTSerial.println(analogRead(sensorPin));
   delay(2000);
 
   /*********** uncomment for AT programming (see setup()) if desired
@@ -358,7 +363,7 @@ void sendBTData()
   Keep reading from Arduino Serial Monitor and send to HC-05
   if (Serial.available())
     BT.write(Serial.read());
-  ************/   
+  *****************************************************************/   
 }
 
 // function to store data in batch form to files to SD card (optional)
@@ -400,8 +405,13 @@ void storeSDData()
 // and smoke
 void gasSensor()
 {
+  Serial.print("MQ-2 CO2 level output: ");
+  gasData = random(1000);
+  Serial.println(gasData);
+  BTSerial.println(gasData);
+
+  delay(2000);
   Serial.print("Analog output: ");
-  Serial.println(analogRead(sensorPin));  // Read the analog value of the gas sensor
+  BTSerial.println(analogRead(sensorPin1));  // Read the analog value of the gas sensor
                                           // and print it to the serial monitor
-  delay(50);  
 }
