@@ -1,0 +1,57 @@
+//  ECE211/212 Project Design
+//  Summer 2024
+//  Portland State University 
+//  Group 6 (Mohammed, Eisa, Fernando, Nate, Rick)
+//
+//
+//---------------------------------------------------------------------------------------------
+//                          Library Calls, Definitions, and Header Files
+//---------------------------------------------------------------------------------------------
+#include <LiquidCrystal_I2C.h>
+#include "DHT.h"
+#define DHTPIN 2
+#define DHTTYPE DHT11
+
+LiquidCrystal_I2C lcd(0x27, 16, 2);  // I2C address 0x3F, 16 column and 2 rows
+DHT dht(DHTPIN, DHTTYPE);
+
+void setup()
+{
+  //---------------------------------------------------------------------------------------------
+  //                Temperature & Humidity Sensor + Liquid Crystal I2C LCD Display
+  //---------------------------------------------------------------------------------------------
+  dht.begin();     // initialize the sensor
+  lcd.init();      // initialize the lcd
+  lcd.backlight(); // open the backlight 
+}
+
+
+
+
+
+void loop()
+{
+  //---------------------------------------------------------------------------------------------
+  //                Temperature & Humidity Sensor + Liquid Crystal I2C LCD Display
+  //---------------------------------------------------------------------------------------------
+  delay(2000);                                             // 2 second delay between measurements
+  float humi  = dht.readHumidity();                        // read humidity
+  float tempC = dht.readTemperature();                     // read temperature
+  float tempF = tempC * 1.8 + 32;                          //Convert to fahrenheit
+  lcd.clear();                                    
+  if (isnan(humi) || isnan(tempC)) {                       // check if any reads failed
+    lcd.setCursor(0, 0);
+    lcd.print("Failed");
+  } 
+  else {
+    lcd.setCursor(0, 0);                                   // start to print at the first row
+    lcd.print("Temp: ");                                   // 'Temp:' text displayed
+    lcd.print(tempF);                                      // print the temperature
+    lcd.print((char)223);                                  // print ° character
+    lcd.print("F");                                        // 'F' displayed
+    lcd.setCursor(0, 1);                                   // start to print at the second row
+    lcd.print("Humidity: ");                               //'Humidity:' displayed
+    lcd.print(humi);                                       // print the humidity
+    lcd.print("%");                                        //'%' displayed
+  }
+}
