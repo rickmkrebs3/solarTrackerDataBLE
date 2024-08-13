@@ -296,8 +296,11 @@ void loop()
   float concentration = getConcentration(rs_med/R0);  // Get the concentration
   
   // Display the concentration value via serial
-  Serial.println("Concentration: ");
-  Serial.println(concentration);
+  Serial.println("Gas concentration: ");
+  lcd.print("CO2 Conc: ");  
+  lcd.print(concentration);   // gas concentration displayed to LCD screen
+  Serial.println(concentration); 
+  BTSerial.println(concentration); // gas concentration sent to over BT to Coolterm
 }
 
 // Get the average resistance in N samples
