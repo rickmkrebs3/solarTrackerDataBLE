@@ -13,8 +13,8 @@
 #define DHTPIN 2
 #define DHTTYPE DHT11
 // BT SoftwareSerial SW pins to emulate pins 0 and 1 (HW USB/UART ports)
-#define rxPin 10
-#define txPin 11
+#define rxPin 15
+#define txPin 14
 #include <RTClib.h>
 #include <Adafruit_INA260.h>
 // enables BT functionality through HW ports emulated in SW
