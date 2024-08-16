@@ -18,7 +18,7 @@
 #include <RTClib.h>
 #include <Adafruit_INA260.h>
 // enables BT functionality through HW ports emulated in SW
-#include "SoftwareSerial.h" 
+#include <SoftwareSerial.h>
 
 // enable I2C for generic communication
 #include <Wire.h>
@@ -79,21 +79,6 @@ void setup()
   lcd.backlight(); // open the backlight 
   
   //---------------------------------------------------------------------------------------------
-  //                Real Time Clock (RTC)
-  //---------------------------------------------------------------------------------------------
-
-  if (!rtc.begin()) {
-    Serial.println("Couldn't find RTC");
-    while (1);
-  }
-  if (!rtc.initialized() || rtc.lostPower()) {
-    Serial.println("RTC is NOT initialized, let's set the time!");
-    // Comment out the next line once the time is set.
-    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
-  }
-  rtc.start();
-
-  //---------------------------------------------------------------------------------------------
   //                Servo Motors(2) & Photoresistors(4)
   //---------------------------------------------------------------------------------------------
   servo1.attach(8);
@@ -151,6 +136,22 @@ void setup()
   } else {
     Serial.println("No BTSerial overflow.");
   }
+
+  //---------------------------------------------------------------------------------------------
+  //                Real Time Clock (RTC)
+  //---------------------------------------------------------------------------------------------
+  if (!rtc.begin()) {
+    Serial.println("Couldn't find RTC");
+    while (1);
+  }
+  if (!rtc.initialized() || rtc.lostPower()) {
+    Serial.println("RTC is NOT initialized, let's set the time!");
+    // Comment out the next line once the time is set.
+    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+  }
+  rtc.start();
+
+  
 }
 
 void loop()
@@ -179,8 +180,8 @@ void loop()
   angle2 = constrain(angle2, 0, 180);
   servo1.write(angle2);
   servo2.write(angle1);
-  delay(10);
-
+  delay(10); 
+  
   //---------------------------------------------------------------------------------------------
   //                Real Time Clock (RTC)
   //---------------------------------------------------------------------------------------------
@@ -214,37 +215,13 @@ void loop()
   BTSerial.print(':');
   BTSerial.println(now.second()); 
 
-  // Wait for 1 second
-  delay(1000);
-
   //---------------------------------------------------------------------------------------------
   //                Temperature & Humidity Sensor + Liquid Crystal I2C LCD Display
   //---------------------------------------------------------------------------------------------
   //delay(2000);                                             // 2 second delay between measurements
   float humi  = dht.readHumidity();                        // read humidity
   float tempC = dht.readTemperature();                     // read temperature
-  float tempF = tempC * 1.8 + 32;                          //Convert to fahrenheit
-  lcd.clear();                                    
-  if (isnan(humi) || isnan(tempC)) {                       // check if any reads failed
-    lcd.setCursor(0, 0);
-    lcd.print("Failed");
-  } 
-  else {
-    lcd.setCursor(0, 0);                                   // start to print at the first row
-    //lcd.print("Time: ");                                   // 'Temp:' text displayed
-    //lcd.print("now")
-    lcd.setCursor(0, 1);                                   // start to print at the second row
-    lcd.print("T/H:");                               //'Humidity:' displayed
-    lcd.print(tempF);                                      // print the temperature
-    BTSerial.println(tempF);
-    lcd.print((char)223);                                  // print ° character
-    //lcd.print("F");                                        // 'F' displayed
-    lcd.print(humi);                                       // print the humidity
-    lcd.print("%");
-    BTSerial.println(humi);                                        //'%' displayed
-  }
-  delay(2000);
-  lcd.clear();
+  float tempF = tempC * 1.8 + 32;                          //Convert to fahrenheit  
 
   //---------------------------------------------------------------------------------------------
   //                Voltage, Current, Power Module
@@ -253,55 +230,110 @@ void loop()
   float bus_voltage = ina260.readBusVoltage();
   float current = ina260.readCurrent();
   float power = ina260.readPower();
-  
+  power = bus_voltage * -current;
   Serial.print("Bus Voltage:   "); Serial.print(bus_voltage); Serial.println(" V");
   Serial.print("Current:       "); Serial.print(-current); Serial.println(" mA");
-  Serial.print("Power:         "); Serial.print(bus_voltage*(-current)); Serial.println(" mW");
-  
-  power = bus_voltage * -current;
-
-  if (isnan(bus_voltage) || isnan(current) || isnan(power)) {                       // check if any reads failed
-    lcd.setCursor(0, 1);
-    lcd.print("Failed");
-  } 
-  else {
-    lcd.setCursor(0, 0);                                   // start to print at the first row
-    //lcd.print("Time: ");                                   // 'Temp:' text displayed
-    //lcd.print("now");
-    lcd.setCursor(0, 1);                                   // start to print at the second row
-    lcd.print("Power: ");                               //'Humidity:' displayed
-    lcd.print(power);                                      // print the temperature
-    BTSerial.println(power);
-    lcd.print("mW");
-  }
-  delay(2000); // Wait for 2 seconds before the next reading
-  lcd.clear();
+  Serial.print("Power:         "); Serial.print(bus_voltage*(-current)); Serial.println(" mW"); 
 
   //---------------------------------------------------------------------------------------------
   //                CO2 Sensor Module
   //---------------------------------------------------------------------------------------------
   bool state = digitalRead(MQ_PIN);
-
   if (!state)
   {
     Serial.println("MQ sensor module detected.");
   } else {
     Serial.println("MQ Sensor module not detected!");
-  }
-  
+  } 
   delay(MQ_DELAY);
-
   // begin to read values 
   float rs_med = readMQ(MQ_PIN);    // Get the average Rs
   float concentration = getConcentration(rs_med/R0);  // Get the concentration
+  Serial.println(concentration); 
   
-  // Display the concentration value via serial
+  //---------------------------------------------------------------------------------------------
+  //                Liquid Crystal LCD Display and Bluetooth Printing
+  //---------------------------------------------------------------------------------------------  
+  //Time, Temperature, and Humidity
+  lcd.setCursor(0, 0);                                   // start to print at the first row
+  lcd.print("Time: ");                                   // 'Temp:' text displayed
+  lcd.print(now.year(), DEC);
+  lcd.print('/');
+  lcd.print(now.month(), DEC);
+  lcd.print('/');
+  lcd.print(now.day(), DEC);
+  lcd.print(" ");
+  lcd.print(now.hour(), DEC);
+  lcd.print(':');
+  lcd.print(now.minute(), DEC);
+  
+  if (isnan(humi) || isnan(tempC)) {                       // check if any reads failed
+    lcd.setCursor(0, 1);
+    lcd.print("Failed");
+  } 
+  else {
+    lcd.setCursor(0, 1);                                   // start to print at the second row
+    lcd.print("T/H:");                               //'Humidity:' displayed
+    lcd.print(tempF);                                      // print the temperature
+    BTSerial.println(tempF);
+    lcd.print((char)223);                                  // print ° character
+    lcd.print(humi);                                       // print the humidity
+    lcd.print("%");
+    BTSerial.println(humi);                                        //'%' displayed
+  }
+  delay(500);
+  lcd.clear();
+
+  //Time, Voltage, Current, Power Module
+  lcd.setCursor(0, 0);                                   // start to print at the first row
+  lcd.print("Time: ");                                   // 'Temp:' text displayed
+  lcd.print(now.year(), DEC);
+  lcd.print('/');
+  lcd.print(now.month(), DEC);
+  lcd.print('/');
+  lcd.print(now.day(), DEC);
+  lcd.print(" ");
+  lcd.print(now.hour(), DEC);
+  lcd.print(':');
+  lcd.print(now.minute(), DEC);
+  
+  if (isnan(bus_voltage) || isnan(current) || isnan(power)) {                       // check if any reads failed
+    lcd.setCursor(0, 1);
+    lcd.print("Failed");
+  } 
+  else {
+    lcd.setCursor(0, 1);                                   // start to print at the second row
+    lcd.print("Power: ");                               //'Humidity:' displayed
+    lcd.print(power);                                      // print the temperature
+    BTSerial.println(bus_voltage);
+    BTSerial.println(current);
+    BTSerial.println(power);
+    lcd.print("mW");
+  }
+  delay(500); 
+  lcd.clear();
+
+  //Air Quality Reading
+  lcd.setCursor(0, 0);                                   // start to print at the first row
+  lcd.print("Time: ");                                   // 'Temp:' text displayed
+  lcd.print(now.year(), DEC);
+  lcd.print('/');
+  lcd.print(now.month(), DEC);
+  lcd.print('/');
+  lcd.print(now.day(), DEC);
+  lcd.print(" ");
+  lcd.print(now.hour(), DEC);
+  lcd.print(':');
+  lcd.print(now.minute(), DEC);
+  
   Serial.println("Gas concentration: ");
+  lcd.setCursor(0, 1);                                   // start to print at the second row
   lcd.print("CO2 Conc: ");  
   lcd.print(concentration);   // gas concentration displayed to LCD screen
-  Serial.println(concentration); 
   BTSerial.println(concentration); // gas concentration sent to over BT to Coolterm
+  delay(500);
 }
+
 
 // Get the average resistance in N samples
 float readMQ(int mq_pin)
